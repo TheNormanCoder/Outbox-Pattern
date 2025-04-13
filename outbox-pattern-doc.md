@@ -70,7 +70,7 @@ Il Pattern Outbox risolve questi problemi separando l'operazione di salvataggio 
 ```sql
 CREATE TABLE outbox (
     id UUID PRIMARY KEY,
-    aggregate_type VARCHAR(255) NOT NULL,  -- es. "Order", "Customer"
+    aggregate_type VARCHAR(255) NOT NULL,  -- es. "com.example.outbox.domain.model.Order", "Customer"
     aggregate_id VARCHAR(255) NOT NULL,    -- identificativo dell'entità
     event_type VARCHAR(255) NOT NULL,      -- es. "OrderCreated", "PaymentReceived"
     payload JSONB NOT NULL,                -- contenuto dell'evento
@@ -86,68 +86,73 @@ CREATE INDEX ON outbox (aggregate_type, aggregate_id);
 ### Esempio di Transazione nel Service
 
 ```java
+import com.example.outbox.domain.event.OrderCreatedEvent;
+import com.example.outbox.domain.model.Order;
+
 @Transactional
 public void createOrder(Order order) {
-    // 1. Salva l'ordine nel database
-    orderRepository.save(order);
-    
-    // 2. Crea l'evento da pubblicare
-    OrderCreatedEvent event = new OrderCreatedEvent(
-        order.getId(),
-        order.getCustomerId(),
-        order.getAmount(),
-        order.getItems()
-    );
-    
-    // 3. Salva l'evento nella tabella outbox (nella stessa transazione)
-    outboxRepository.save(new OutboxMessage(
-        UUID.randomUUID(),
-        "Order",
-        order.getId().toString(),
-        "OrderCreated",
-        serializeToJson(event),
-        LocalDateTime.now(),
-        false,
-        null
-    ));
+   // 1. Salva l'ordine nel database
+   orderRepository.save(order);
+
+   // 2. Crea l'evento da pubblicare
+   OrderCreatedEvent event = new OrderCreatedEvent(
+           order.getId(),
+           order.getCustomerId(),
+           order.getAmount(),
+           order.getItems()
+   );
+
+   // 3. Salva l'evento nella tabella outbox (nella stessa transazione)
+   outboxRepository.save(new OutboxMessage(
+           UUID.randomUUID(),
+           "com.example.outbox.domain.model.Order",
+           order.getId().toString(),
+           "OrderCreated",
+           serializeToJson(event),
+           LocalDateTime.now(),
+           false,
+           null
+   ));
 }
 ```
 
 ### Implementazione dell'OutboxPoller
 
 ```java
+import com.example.outbox.outbox.repository.OutboxRepository;
+
 @Component
 public class OutboxPoller {
-    private final OutboxRepository outboxRepository;
-    private final MessagePublisher messagePublisher;
-    
-    @Scheduled(fixedRate = 5000)  // Esegui ogni 5 secondi
-    @Transactional
-    public void pollAndPublish() {
-        // 1. Recupera eventi non processati
-        List<OutboxMessage> messages = outboxRepository.findUnprocessedMessages(100);
-        
-        for (OutboxMessage message : messages) {
-            try {
-                // 2. Pubblica l'evento
-                messagePublisher.publish(
+   private final OutboxRepository outboxRepository;
+   private final MessagePublisher messagePublisher;
+
+   @Scheduled(fixedRate = 5000)  // Esegui ogni 5 secondi
+   @Transactional
+   public void pollAndPublish() {
+      // 1. Recupera eventi non processati
+      List<OutboxMessage> messages = outboxRepository.findUnprocessedMessages(100);
+
+      for (OutboxMessage message : messages) {
+         try {
+            // 2. Pubblica l'evento
+            messagePublisher.publish(
                     message.getEventType(),
                     message.getAggregateType(),
                     message.getAggregateId(),
                     message.getPayload()
-                );
-                
-                // 3. Marca come processato
-                message.setProcessed(true);
-                message.setProcessedAt(LocalDateTime.now());
-                outboxRepository.save(message);
-            } catch (Exception e) {
-                // In caso di errore, l'evento rimarrà non processato
-                // e verrà riprovato nel prossimo ciclo
-                log.error("Failed to process message {}", message.getId(), e);
-            }
-        }
-    }
+            );
+
+            // 3. Marca come processato
+            message.setProcessed(true);
+            message.setProcessedAt(LocalDateTime.now());
+            outboxRepository.save(message);
+         } catch (Exception e) {
+            // In caso di errore, l'evento rimarrà non processato
+            // e verrà riprovato nel prossimo ciclo
+            log.error("Failed to process message {}", message.getId(), e);
+         }
+      }
+   }
 }
 ```
 

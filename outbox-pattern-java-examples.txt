@@ -1,0 +1,84 @@
+/**
+ * 1. DEFINIZIONE DELLE ENTITÀ
+ */
+
+
+
+
+/**
+ * 2. REPOSITORY PER ACCESSO AI DATI
+ */
+
+
+
+/**
+ * 3. EVENTI DI DOMINIO
+ */
+
+
+
+
+
+/**
+ * 4. SERIALIZZAZIONE DEGLI EVENTI
+ */
+
+
+
+/**
+ * 5. SERVICE PER GESTIRE GLI ORDINI (CON OUTBOX)
+ */
+
+
+/**
+ * 6. IMPLEMENTAZIONE DEL POLLER
+ */
+
+
+/**
+ * 7. IMPLEMENTAZIONE DEL MESSAGE PUBLISHER
+ */
+
+
+
+/**
+ * 8. CONFIGURAZIONE SPRING BOOT
+ */
+
+
+
+/**
+ * 9. PULIZIA DELLA TABELLA OUTBOX
+ */
+
+
+/**
+ * 10. CONSUMER DELL'EVENTO (in un altro servizio)
+ */
+
+
+/**
+ * 11. SCHEMA SQL PER LA TABELLA OUTBOX
+ */
+
+/*
+CREATE TABLE outbox (
+    id UUID PRIMARY KEY,
+    aggregate_type VARCHAR(255) NOT NULL,
+    aggregate_id VARCHAR(255) NOT NULL,
+    event_type VARCHAR(255) NOT NULL,
+    payload JSONB NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    processed BOOLEAN NOT NULL DEFAULT FALSE,
+    processed_at TIMESTAMP,
+    
+    -- Indici per migliorare le performance
+    INDEX idx_outbox_processed_created (processed, created_at),
+    INDEX idx_outbox_aggregate (aggregate_type, aggregate_id)
+);
+*/
+
+/**
+ * 12. TEST UNITARIO PER IL SERVICE CON OUTBOX
+ */
+
